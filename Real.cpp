@@ -1,4 +1,6 @@
-﻿#include<iostream>
+#include<iostream>
+#include<vector>
+#include<mutex>
 #include<future>
 #include"Header.h"
 
@@ -7,6 +9,7 @@ using namespace std;
 int threadNum = 1;           // номер потока
 int threadNumber = 8;        // количество потоков
 bool threadNeed = true;      // флаг работы алгоритма многопоточным методом
+std::mutex mx;               // мьютекс для потокобезопасного определения переменной 'threadNum'
 
 /* функция слияния записи элементов в исходный массив */
 void merge(int* arr, int l, int m, int r)  // функция записи элементов в исходный массив
@@ -14,13 +17,13 @@ void merge(int* arr, int l, int m, int r)  // функция записи эле
     int nl = m - l + 1;
     int nr = r - m;
 
-    int* left = new int[nl];         // создать временные массивы
-    int* right = new int[nr];
+    vector<int> left;                // создать временные массивы
+    vector<int> right;
 
     for (int i = 0; i < nl; i++)     // копировать данные во временные массивы
-        left[i] = arr[l + i];
+        left.push_back(arr[l + i]);
     for (int j = 0; j < nr; j++)
-        right[j] = arr[m + 1 + j];
+        right.push_back(arr[m + 1 + j]);
 
     int i = 0, j = 0;
     int k = l;                       // начало левой части
@@ -50,12 +53,10 @@ void merge(int* arr, int l, int m, int r)  // функция записи эле
         j++;
         k++;
     }
-    delete[] left;
-    delete[] right;
 }
 
 /* рекурсивная функция сортировки */
-void mergeSort(int* arr, int l, int r) 
+void mergeSort(int* arr, int l, int r)
 {
     if (l >= r) return;              // выйти из рекурсии
 
@@ -64,8 +65,10 @@ void mergeSort(int* arr, int l, int r)
     future<void> f;
     if (threadNum - 1 < threadNumber && threadNeed)  // запустить многопоточное выполнение при необходимости и с заранее определенным количеством потоков
     {
+        mx.lock();
         cout << "<thread number " << threadNum++ << " is active> ";
         f = async(launch::async, [arr, l, m]() {mergeSort(arr, l, m);});
+        mx.unlock();
     }
     else
     {
@@ -73,13 +76,11 @@ void mergeSort(int* arr, int l, int r)
     }
 
     mergeSort(arr, m + 1, r);
-
     if (f.valid())     // проверить, был ли запущен асинхронный процесс
     {
-        f.get();       // дождаться завершения асинхронного вычисления
+       f.get();                         // дождаться завершения асинхронного вычисления
     }
-
     merge(arr, l, m, r);
 }
 
-// пос. Магистральный 04.12.2024
+// пос. Магистральный 05.12.2024
